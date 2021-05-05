@@ -47,18 +47,18 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     acc = db.get_account(message.get_sender_contact().addr)
     if acc:
         if acc["password"]:
-            replies.add(text="ERROR: ya verificaste tu número de teléfono")
+            replies.add(text="❌ Ya verificaste tu número de teléfono")
             return
         try:
             code = int(message.text)
             password = _get_client().validate_code(acc["phone"], str(code))
             db.set_password(acc["addr"], password)
             replies.add(
-                text=f"Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
+                text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
             )
         except Exception as ex:
             bot.logger.exception(ex)
-            replies.add(text=f"Falló la verificación: {ex}")
+            replies.add(text=f"❌ Falló la verificación: {ex}")
         return
 
 
@@ -69,7 +69,7 @@ def s3_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) ->
     acc = db.get_account(addr)
     if acc:
         replies.add(
-            text="ERROR: ya estás registrado, debes darte baja primero con /s3_logout"
+            text="❌ Ya estás registrado, debes darte baja primero con /s3_logout"
         )
         return
     try:
@@ -80,7 +80,7 @@ def s3_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) ->
     except Exception as ex:
         bot.logger.exception(ex)
         replies.add(
-            text=f"Ocurrió un error, verifica que pusiste el número correctamente. {ex}"
+            text=f"❌ Ocurrió un error, verifica que pusiste el número correctamente. {ex}"
         )
 
 
@@ -92,7 +92,7 @@ def s3_logout(bot: DeltaBot, message: Message, replies: Replies) -> None:
     if acc:
         db.delete_account(addr)
         replies.add(
-            text="Tu cuenta ha sido desvinculada.\n\nATENCIÓN RETRASADOS MENTALES: No se estén dando de baja y logueando otra vez constantemente si no quieren que ToDus bloquee su cuenta. No pueden la misma cuenta de ToDus en varios dispositivos por eso la app del ToDus les dejará de funcionar, tienen que o dejar de usar la apk o usar alguna que les deje establecer el password (el token que les envía el bot cuando inician sesión)"
+            text="🗑️ Tu cuenta ha sido desvinculada.\n\n**⚠️ATENCIÓN:** No se estén dando de baja y logueando otra vez constantemente si no quieren que ToDus bloquee su cuenta. No pueden la misma cuenta de ToDus en varios dispositivos por eso la app del ToDus les dejará de funcionar, tienen que o dejar de usar la apk o usar alguna que les deje establecer el password (el token que les envía el bot cuando inician sesión)"
         )
     else:
         replies.add(text="No estás registrado")
@@ -106,20 +106,20 @@ def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> N
     if acc and acc["password"]:
         if not payload:
             replies.add(
-                text="Ehhh... no me pasaste la URL de internet que quieres descargar, por ejemplo: /s3_get https://fsf.org"
+                text="❌ Ehhh... no me pasaste la URL de internet que quieres descargar, por ejemplo: /s3_get https://fsf.org"
             )
             return
         try:
             download_queue.put((message, payload), block=False)
             replies.add(
-                text="Tu petición ha sido puesta en la cola de descargas, espera."
+                text="⏳ Tu petición ha sido puesta en la cola de descargas, por favor, espera."
             )
         except queue.Full:
             replies.add(
-                text="Ya hay muchas peticiones pendientes en cola, intenta más tarde."
+                text="⏸️ Ya hay muchas peticiones pendientes en cola, tomate una pausa 😉 intenta más tarde."
             )
     else:
-        replies.add(text="No estás registrado")
+        replies.add(text="❌ No estás registrado")
 
 
 def _process_queue(bot: DeltaBot) -> None:
@@ -172,7 +172,7 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
                 replies.send_reply_messages()
             except Exception as ex:
                 bot.logger.exception(ex)
-                msg.chat.send_text(f"La descarga falló. {ex}")
+                msg.chat.send_text(f"❌ La descarga falló. {ex}")
 
 
 def _get_client() -> ToDusClient:
