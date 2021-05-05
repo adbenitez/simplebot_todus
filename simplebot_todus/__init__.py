@@ -142,21 +142,21 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
                 bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
                 with TemporaryDirectory() as tempdir:
                     with multivolumefile.open(
-                        os.path.join(tempdir.name, filename + ".7z"),
+                        os.path.join(tempdir, filename + ".7z"),
                         "wb",
                         volume=part_size,
                     ) as vol:
                         with py7zr.SevenZipFile(vol, "w") as a:
                             a.writestr(data, filename)
                     del data
-                    parts = sorted(os.listdir(tempdir.name))
+                    parts = sorted(os.listdir(tempdir))
                     parts_count = len(parts)
                     urls = []
                     client = _get_client()
                     for i, name in enumerate(parts, 1):
                         bot.logger.debug("Uploading %s/%s: %s", i, parts_count, url)
                         token = client.login(acc["phone"], acc["password"])
-                        with open(os.path.join(tempdir.name, name), "rb") as file:
+                        with open(os.path.join(tempdir, name), "rb") as file:
                             part = file.read()
                         urls.append(client.upload_file(token, part, len(part)))
                 txt = "\n".join(
