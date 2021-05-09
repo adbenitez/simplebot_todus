@@ -165,10 +165,16 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
                     client = _get_client()
                     for i, name in enumerate(parts, 1):
                         bot.logger.debug("Uploading %s/%s: %s", i, parts_count, url)
-                        token = client.login(acc["phone"], acc["password"])
                         with open(os.path.join(tempdir, name), "rb") as file:
                             part = file.read()
-                        urls.append(client.upload_file(token, part, len(part)))
+                        try:
+                            token = client.login(acc["phone"], acc["password"])
+                            urls.append(client.upload_file(token, part, len(part)))
+                        except Exception as ex:
+                            bot.logger.exception(ex)
+                            time.sleep(10)
+                            token = client.login(acc["phone"], acc["password"])
+                            urls.append(client.upload_file(token, part, len(part)))
                 txt = "\n".join(
                     f"{down_url}\t{name}" for down_url, name in zip(urls, parts)
                 )
