@@ -17,6 +17,7 @@ from simplebot.bot import DeltaBot, Replies
 
 from .db import DBManager
 from .todus.client import ToDusClient
+import youtube_dl
 
 __version__ = "1.0.0"
 HEADERS = {
@@ -135,10 +136,14 @@ def _process_queue(bot: DeltaBot) -> None:
 def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> None:
     with sem:
         addr = msg.get_sender_contact().addr
+        is_admin = bot.is_admin(addr)
         acc = db.get_account(addr)
         if acc and acc["password"]:
             try:
-                filename, data, size = _download_file(url)
+                if url.startswith(("https://www.youtube.com/watch?v=", "https://youtu.be/")):
+                    filename, data, size = _download_ytvideo(url, is_admin)
+                else:
+                    filename, data, size = _download_file(url, is_admin)
                 bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
                 with TemporaryDirectory() as tempdir:
                     with multivolumefile.open(
@@ -191,16 +196,44 @@ def _get_db(bot: DeltaBot) -> DBManager:
     return DBManager(os.path.join(path, "sqlite.db"))
 
 
-def _download_file(url: str) -> tuple:
+def _download_ytvideo(url: str, is_admin: bool) -> tuple:
+    with TemporaryDirectory() as tempdir:
+        opts = {
+            "max_downloads": 1,
+            "socket_timeout": 15,
+            "outtmpl": tempdir + "/%(title)s.%(ext)s",
+        }
+        if not is_admin:
+            opts["max_filesize"] = max_size
+        with youtube_dl.YoutubeDL(opts) as yt:
+            yt.download([url])
+        files = os.listdir(tempdir)
+        if len(files) > 1:
+            raise ValueError("File too big")
+        filename = files[0]
+        data = b""
+        size = 0
+        chunk_size = 1024 * 1024
+        with open(os.path.join(tempdir, filename), "rb") as f:
+            chunk = f.read(chunk_size)
+            while chunk:
+                size += len(chunk)
+                if not is_admin and size > max_size:
+                    raise ValueError("File too big")
+                data += chunk
+                chunk = f.read(chunk_size)
+    return (filename, data, size)
+
+def _download_file(url: str, is_admin: bool) -> tuple:
     if "://" not in url:
         url = "http://" + url
     with requests.get(url, headers=HEADERS, stream=True, timeout=15) as r:
         r.raise_for_status()
-        size = 0
         data = b""
+        size = 0
         for chunk in r.iter_content(chunk_size=1024 * 1024):
             size += len(chunk)
-            if size > max_size:
+            if not is_admin and size > max_size:
                 raise ValueError("File too big")
             data += chunk
         return (get_filename(r) or "file", data, size)

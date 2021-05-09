@@ -107,7 +107,11 @@ def main() -> None:
             logging.info("Downloading: %s", url)
             url, name = url.split("?name=", maxsplit=1)
             name = unquote_plus(name)
-            size = client.download_file(token, url, name)
+            try:
+                size = client.download_file(token, url, name)
+            except:
+                token = client.login(args.number, password)
+                size = client.download_file(token, url, name)
             logging.debug("File Size: %s", size // 1024)
     elif args.command == "login":
         set_password(args.number, register(client, args.number), args.folder)
