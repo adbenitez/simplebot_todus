@@ -12,12 +12,12 @@ import multivolumefile
 import py7zr
 import requests
 import simplebot
+import youtube_dl
 from deltachat import Message
 from simplebot.bot import DeltaBot, Replies
 
 from .db import DBManager
 from .todus.client import ToDusClient
-import youtube_dl
 
 __version__ = "1.0.0"
 HEADERS = {
@@ -107,20 +107,23 @@ def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> N
     if acc and acc["password"]:
         if not payload:
             replies.add(
-                text="❌ Ehhh... no me pasaste la URL de internet que quieres descargar, por ejemplo: /s3_get https://fsf.org"
+                text="❌ Ehhh... no me pasaste la URL de internet que quieres descargar, por ejemplo: /s3_get https://fsf.org",
+                quote=message,
             )
             return
         try:
             download_queue.put((message, payload), block=False)
             replies.add(
-                text="⏳ Tu petición ha sido puesta en la cola de descargas, por favor, espera."
+                text="⏳ Tu petición ha sido puesta en la cola de descargas, por favor, espera.",
+                quote=message,
             )
         except queue.Full:
             replies.add(
-                text="⏸️ Ya hay muchas peticiones pendientes en cola, tomate una pausa 😉 intenta más tarde."
+                text="⏸️ Ya hay muchas peticiones pendientes en cola, tomate una pausa 😉 intenta más tarde.",
+                quote=message,
             )
     else:
-        replies.add(text="❌ No estás registrado")
+        replies.add(text="❌ No estás registrado", quote=message)
 
 
 def _process_queue(bot: DeltaBot) -> None:
@@ -140,7 +143,9 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
         acc = db.get_account(addr)
         if acc and acc["password"]:
             try:
-                if url.startswith(("https://www.youtube.com/watch?v=", "https://youtu.be/")):
+                if url.startswith(
+                    ("https://www.youtube.com/watch?v=", "https://youtu.be/")
+                ):
                     filename, data, size = _download_ytvideo(url, is_admin)
                 else:
                     filename, data, size = _download_file(url, is_admin)
@@ -177,7 +182,9 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
                 replies.send_reply_messages()
             except Exception as ex:
                 bot.logger.exception(ex)
-                msg.chat.send_text(f"❌ La descarga falló. {ex}")
+                replies = Replies(msg, logger=bot.logger)
+                replies.add(text=f"❌ La descarga falló. {ex}", quote=msg)
+                replies.send_reply_messages()
 
 
 def _get_client() -> ToDusClient:
@@ -223,6 +230,7 @@ def _download_ytvideo(url: str, is_admin: bool) -> tuple:
                 data += chunk
                 chunk = f.read(chunk_size)
     return (filename, data, size)
+
 
 def _download_file(url: str, is_admin: bool) -> tuple:
     if "://" not in url:
