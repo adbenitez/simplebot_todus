@@ -144,7 +144,7 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
         if acc and acc["password"]:
             try:
                 if url.startswith(
-                    ("https://www.youtube.com/watch?v=", "https://youtu.be/")
+                    ("https://www.youtube.com/watch?v=", "https://m.youtube.com/watch?v=", "https://youtu.be/")
                 ):
                     filename, data, size = _download_ytvideo(url, is_admin)
                 else:
@@ -172,9 +172,12 @@ def _process_request(bot: DeltaBot, msg: Message, url: str, sem: Semaphore) -> N
                             urls.append(client.upload_file(token, part, len(part)))
                         except Exception as ex:
                             bot.logger.exception(ex)
-                            time.sleep(10)
-                            token = client.login(acc["phone"], acc["password"])
-                            urls.append(client.upload_file(token, part, len(part)))
+                            time.sleep(15)
+                            try:
+                                token = client.login(acc["phone"], acc["password"])
+                                urls.append(client.upload_file(token, part, len(part)))
+                            except Exception as ex:
+                                raise ValueError(f"Failed to upload part {i} ({len(part):,}B)")
                 txt = "\n".join(
                     f"{down_url}\t{name}" for down_url, name in zip(urls, parts)
                 )
@@ -212,12 +215,11 @@ def _get_db(bot: DeltaBot) -> DBManager:
 def _download_ytvideo(url: str, is_admin: bool) -> tuple:
     with TemporaryDirectory() as tempdir:
         opts = {
+            "format": "best" if is_admin else f"best[filesize<{max_size}]",
             "max_downloads": 1,
             "socket_timeout": 15,
             "outtmpl": tempdir + "/%(title)s.%(ext)s",
         }
-        if not is_admin:
-            opts["max_filesize"] = max_size
         with youtube_dl.YoutubeDL(opts) as yt:
             yt.download([url])
         files = os.listdir(tempdir)
@@ -226,7 +228,7 @@ def _download_ytvideo(url: str, is_admin: bool) -> tuple:
         filename = files[0]
         data = b""
         size = 0
-        chunk_size = 1024 * 1024
+        chunk_size = 1024 * 1024 * 5
         with open(os.path.join(tempdir, filename), "rb") as f:
             chunk = f.read(chunk_size)
             while chunk:
