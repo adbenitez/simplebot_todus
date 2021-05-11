@@ -25,7 +25,7 @@ HEADERS = {
 }
 max_size = 1024 * 1024 * 200
 part_size = 1024 * 1024 * 15
-download_queue: queue.Queue = queue.Queue(100)
+download_queue: queue.Queue = queue.Queue(50)
 db: DBManager
 
 
