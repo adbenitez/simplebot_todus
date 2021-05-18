@@ -2,13 +2,60 @@ import argparse
 import logging
 import os
 import sys
+import time
+from tempfile import TemporaryDirectory
 from urllib.parse import quote_plus, unquote_plus
+
+import multivolumefile
+import py7zr
 
 from . import __version__
 from .client import ToDusClient
 from .s3 import get_real_url
 
 logging.basicConfig(format="%(levelname)s - %(message)s", level=logging.INFO)
+
+
+def split_upload(phone: str, password: str, path: str, part_size: int) -> str:
+    with open(path, "rb") as file:
+        data = file.read()
+    filename = os.path.basename(path)
+    with TemporaryDirectory() as tempdir:
+        with multivolumefile.open(
+            os.path.join(tempdir, filename + ".7z"),
+            "wb",
+            volume=part_size,
+        ) as vol:
+            with py7zr.SevenZipFile(vol, "w") as a:
+                a.writestr(data, filename)
+        del data
+        parts = sorted(os.listdir(tempdir))
+        parts_count = len(parts)
+        urls = []
+        client = ToDusClient()
+        for i, name in enumerate(parts, 1):
+            logging.debug("Uploading %s/%s: %s", i, parts_count, filename)
+            with open(os.path.join(tempdir, name), "rb") as file:
+                part = file.read()
+            try:
+                token = client.login(phone, password)
+                urls.append(client.upload_file(token, part, len(part)))
+            except Exception as ex:
+                logging.exception(ex)
+                time.sleep(15)
+                try:
+                    token = client.login(phone, password)
+                    urls.append(client.upload_file(token, part, len(part)))
+                except Exception as ex:
+                    logging.exception(ex)
+                    raise ValueError(
+                        f"Failed to upload part {i} ({len(part):,}B): {ex}"
+                    )
+        txt = "\n".join(f"{down_url}\t{name}" for down_url, name in zip(urls, parts))
+        path = os.path.abspath(filename + ".txt")
+        with open(path, "w") as f:
+            f.write(txt)
+        return path
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -48,6 +95,14 @@ def get_parser() -> argparse.ArgumentParser:
     up_parser.add_argument("file", nargs="+", help="file to upload")
 
     down_parser = subparsers.add_parser(name="download", help="download file")
+    down_parser.add_argument(
+        "-p",
+        "--part-size",
+        dest="part_size",
+        type=int,
+        default=0,
+        help="if given, the file will be split in parts of the given size in bytes",
+    )
     down_parser.add_argument("url", nargs="+", help="url to download or txt file path")
 
     return parser
@@ -83,15 +138,19 @@ def main() -> None:
         print("ERROR: account not authenticated, login first.")
         return
     if args.command == "upload":
-        token = client.login(args.number, password)
-        logging.debug("Token: '%s'", token)
         for path in args.file:
-            with open(path, "rb") as file:
-                data = file.read()
             logging.info("Uploading: %s", path)
-            url = client.upload_file(token, data, len(data))
-            url += "?name=" + quote_plus(os.path.basename(path))
-            logging.info("URL: %s", url)
+            if args.part_size:
+                txt = split_upload(args.number, password, path, args.part_size)
+                logging.info("TXT: %s", txt)
+            else:
+                with open(path, "rb") as file:
+                    data = file.read()
+                token = client.login(args.number, password)
+                logging.debug("Token: '%s'", token)
+                url = client.upload_file(token, data, len(data))
+                url += "?name=" + quote_plus(os.path.basename(path))
+                logging.info("URL: %s", url)
     elif args.command == "download":
         token = client.login(args.number, password)
         logging.debug("Token: '%s'", token)
