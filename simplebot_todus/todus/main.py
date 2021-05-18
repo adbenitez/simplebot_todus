@@ -34,7 +34,7 @@ def split_upload(phone: str, password: str, path: str, part_size: int) -> str:
         urls = []
         client = ToDusClient()
         for i, name in enumerate(parts, 1):
-            logging.debug("Uploading %s/%s: %s", i, parts_count, filename)
+            logging.info("Uploading %s/%s: %s", i, parts_count, filename)
             with open(os.path.join(tempdir, name), "rb") as file:
                 part = file.read()
             try:
