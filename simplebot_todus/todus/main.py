@@ -92,10 +92,7 @@ def get_parser() -> argparse.ArgumentParser:
     login_parser = subparsers.add_parser(name="login", help="authenticate in server")
 
     up_parser = subparsers.add_parser(name="upload", help="upload file")
-    up_parser.add_argument("file", nargs="+", help="file to upload")
-
-    down_parser = subparsers.add_parser(name="download", help="download file")
-    down_parser.add_argument(
+    up_parser.add_argument(
         "-p",
         "--part-size",
         dest="part_size",
@@ -103,6 +100,9 @@ def get_parser() -> argparse.ArgumentParser:
         default=0,
         help="if given, the file will be split in parts of the given size in bytes",
     )
+    up_parser.add_argument("file", nargs="+", help="file to upload")
+
+    down_parser = subparsers.add_parser(name="download", help="download file")
     down_parser.add_argument("url", nargs="+", help="url to download or txt file path")
 
     return parser
