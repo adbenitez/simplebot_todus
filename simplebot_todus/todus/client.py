@@ -1,3 +1,4 @@
+import functools
 import string
 
 import requests
@@ -13,6 +14,12 @@ class ToDusClient:
         self.version_name = version_name
         self.version_code = version_code
         self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "Accept-Encoding": "gzip",
+            }
+        )
+        self.session.request = functools.partial(self.session.request, timeout=15)
 
     @property
     def auth_ua(self) -> str:
@@ -32,7 +39,6 @@ class ToDusClient:
             "Host": "auth.todus.cu",
             "User-Agent": self.auth_ua,
             "Content-Type": "application/x-protobuf",
-            "Accept-Encoding": "gzip",
         }
         data = (
             b"\n\n"
@@ -53,7 +59,6 @@ class ToDusClient:
             "Host": "auth.todus.cu",
             "User-Agent": self.auth_ua,
             "Content-Type": "application/x-protobuf",
-            "Accept-Encoding": "gzip",
         }
         data = (
             b"\n\n"
@@ -78,7 +83,6 @@ class ToDusClient:
             "Host": "auth.todus.cu",
             "user-agent": self.auth_ua,
             "content-type": "application/x-protobuf",
-            "accept-encoding": "gzip",
         }
         data = (
             b"\n\n"
@@ -103,7 +107,6 @@ class ToDusClient:
         headers = {
             "User-Agent": self.upload_ua,
             "Authorization": "Bearer {}".format(token),
-            "Accept-Encoding": "gzip",
         }
         with self.session.put(url=up_url, data=data, headers=headers) as resp:
             resp.raise_for_status()
@@ -118,7 +121,6 @@ class ToDusClient:
         headers = {
             "User-Agent": self.download_ua,
             "Authorization": "Bearer {}".format(token),
-            "Accept-Encoding": "gzip",
         }
         with self.session.get(url=url, headers=headers) as resp:
             resp.raise_for_status()

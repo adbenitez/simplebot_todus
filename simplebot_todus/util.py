@@ -1,3 +1,4 @@
+import functools
 import logging
 import mimetypes
 import os
@@ -11,9 +12,13 @@ from simplebot.bot import DeltaBot
 from .db import DBManager
 from .todus.client import ToDusClient
 
-HEADERS = {
-    "user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0"
-}
+session = requests.Session()
+session.headers.update(
+    {
+        "user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0"
+    }
+)
+session.request = functools.partial(session.request, timeout=15)
 max_size = 1024 * 1024 * 200
 
 
@@ -70,7 +75,7 @@ def download_ytvideo(url: str, is_admin: bool) -> tuple:
 def download_file(url: str, is_admin: bool) -> tuple:
     if "://" not in url:
         url = "http://" + url
-    with requests.get(url, headers=HEADERS, stream=True, timeout=15) as r:
+    with session.get(url, stream=True) as r:
         r.raise_for_status()
         data = b""
         size = 0

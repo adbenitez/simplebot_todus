@@ -10,7 +10,7 @@ from .util import generate_token
 
 def _get_socket() -> ssl.SSLSocket:
     sock = socket.socket(socket.AF_INET)
-    sock.settimeout(10)
+    sock.settimeout(15)
     so = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_TLSv1_2)
     so.connect(("im.todus.cu", 1756))
     so.send(b"<stream:stream xmlns='jc' o='im.todus.cu' xmlns:stream='x1' v='1.0'>")

@@ -158,10 +158,12 @@ def main() -> None:
             url = args.url.pop(0)
             if os.path.exists(url):
                 with open(url) as fp:
-                    args.url = [
-                        "{}?name={}".format(*line.strip().split(maxsplit=1))
-                        for line in fp.readlines()
-                    ] + args.url
+                    urls = []
+                    for line in fp.readlines():
+                        line = line.strip()
+                        if line:
+                            urls.append("{}?name={}".format(*line.split(maxsplit=1)))
+                    args.url = urls + args.url
                     continue
             logging.info("Downloading: %s", url)
             url, name = url.split("?name=", maxsplit=1)
