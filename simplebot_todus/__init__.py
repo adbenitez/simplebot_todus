@@ -108,7 +108,7 @@ def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> N
                 text="❌ Ya tienes una petición pendiente en cola, espera a que tu descarga termine, solo puedes hacer una petición a la vez.",
                 quote=message,
             )
-        elif len(petitions) > queue_size:
+        elif len(petitions) >= queue_size:
             replies.add(
                 text="⏸️ Ya hay muchas peticiones pendientes en cola, intenta más tarde.",
                 quote=message,
@@ -142,7 +142,7 @@ def _process_request(
                 "wb",
                 volume=part_size,
             ) as vol:
-                with py7zr.SevenZipFile(vol, "w") as a:
+                with py7zr.SevenZipFile(vol, "w", filters=[{"id": py7zr.FILTER_COPY}]) as a:
                     a.writestr(data, filename)
             del data
             parts = sorted(os.listdir(tempdir))
