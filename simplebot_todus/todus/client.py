@@ -108,7 +108,7 @@ class ToDusClient:
             "User-Agent": self.upload_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        timeout = (max(len(data)/1024/1024 * 10, 30), 30)
+        timeout = max(len(data)/1024/1024 * 10, 30)
         with self.session.put(url=up_url, data=data, headers=headers, timeout=timeout) as resp:
             resp.raise_for_status()
         return down_url
@@ -123,7 +123,7 @@ class ToDusClient:
             "User-Agent": self.download_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        with self.session.get(url=url, headers=headers) as resp:
+        with self.session.get(url=url, headers=headers, timeout=60) as resp:
             resp.raise_for_status()
             size = int(resp.headers.get("Content-Length"))
             with open(path, "wb") as file:
