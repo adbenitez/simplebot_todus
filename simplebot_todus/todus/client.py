@@ -108,8 +108,10 @@ class ToDusClient:
             "User-Agent": self.upload_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        timeout = max(len(data)/1024/1024 * 10, 30)
-        with self.session.put(url=up_url, data=data, headers=headers, timeout=timeout) as resp:
+        timeout = max(len(data) / 1024 / 1024 * 10, 30)
+        with self.session.put(
+            url=up_url, data=data, headers=headers, timeout=timeout
+        ) as resp:
             resp.raise_for_status()
         return down_url
 

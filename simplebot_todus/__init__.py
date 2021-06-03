@@ -79,6 +79,31 @@ def s3_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) ->
 
 
 @simplebot.command
+def s3_login2(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Iniciar sessión con tu número de teléfono y contraseña. Ejemplo: /s3_login2 5355555 ay21XjB8i7Uyz"""
+    addr = message.get_sender_contact().addr
+    acc = db.get_account(addr)
+    if acc:
+        replies.add(
+            text="❌ Ya estás registrado, debes darte baja primero con /s3_logout"
+        )
+        return
+    try:
+        phone, password = payload.rsplit(maxsplit=1)
+        phone = parse_phone(phone)
+        ToDusClient().login(phone, password)
+        db.add_account(addr, phone, password)
+        replies.add(
+            text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
+        )
+    except Exception as ex:
+        bot.logger.exception(ex)
+        replies.add(
+            text=f"❌ Ocurrió un error, verifica que pusiste el número y contraseña correctamente. {ex}"
+        )
+
+
+@simplebot.command
 def s3_logout(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Darte baja del bot y olvidar tu cuenta."""
     addr = message.get_sender_contact().addr
@@ -94,7 +119,7 @@ def s3_logout(bot: DeltaBot, message: Message, replies: Replies) -> None:
 
 @simplebot.command
 def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
-    """Obten un archivo de internet como enlace de descarga gratis de s3, debes estar registrado para usar este comando."""
+    """Obtén un archivo de internet como enlace de descarga gratis de s3, debes estar registrado para usar este comando."""
     addr = message.get_sender_contact().addr
     acc = db.get_account(addr)
     if acc and acc["password"]:
@@ -124,6 +149,26 @@ def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> N
         replies.add(text="❌ No estás registrado", quote=message)
 
 
+@simplebot.command
+def s3_pass(message: Message, replies: Replies) -> None:
+    """Obtén el password de tu sessión registrada."""
+    acc = db.get_account(message.get_sender_contact().addr)
+    if acc and acc["password"]:
+        replies.add(text=acc["password"])
+    else:
+        replies.add(text="❌ No estás registrado", quote=message)
+
+
+@simplebot.command
+def s3_token(message: Message, replies: Replies) -> None:
+    """Obtén un token temporal que sirve para autenticarse en el servidor de s3 con otras apps que lo soporten."""
+    acc = db.get_account(message.get_sender_contact().addr)
+    if acc and acc["password"]:
+        replies.add(text=ToDusClient().login(acc["phone"], acc["password"]))
+    else:
+        replies.add(text="❌ No estás registrado", quote=message)
+
+
 def _process_request(
     bot: DeltaBot, msg: Message, addr: str, acc: dict, url: str
 ) -> None:
@@ -142,7 +187,9 @@ def _process_request(
                 "wb",
                 volume=part_size,
             ) as vol:
-                with py7zr.SevenZipFile(vol, "w", filters=[{"id": py7zr.FILTER_COPY}]) as a:
+                with py7zr.SevenZipFile(
+                    vol, "w", filters=[{"id": py7zr.FILTER_COPY}]
+                ) as a:
                     a.writestr(data, filename)
             del data
             parts = sorted(os.listdir(tempdir))
