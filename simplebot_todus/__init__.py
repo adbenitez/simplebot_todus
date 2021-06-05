@@ -142,7 +142,7 @@ def s3_status(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
         step = max(d.step, 0)
         percent =  step / d.parts
         progress = ("🟩" * round(10 * percent)).ljust(10, "⬜")
-        text = f"⬇️ Tu petición está siendo descargada\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
+        text = f"⬇️ Tu petición se está descargando!\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
     elif in_queue:
         text = "⏳ Tu petición está pendiente en cola, espera tu turno."
     else:
