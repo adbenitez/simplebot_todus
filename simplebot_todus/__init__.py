@@ -27,6 +27,17 @@ downloading = set()
 db: DBManager
 
 
+class Download:
+    def __init__(self, addr: str) -> None:
+        self.addr = addr
+        self.step = -2
+        self.parts = 0
+        self.size = 0
+
+    def __repr__(self) -> str:
+        return f"<{self.addr} step={self.step}, parts={self.parts}>"
+
+
 @simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     global db
@@ -118,6 +129,28 @@ def s3_logout(bot: DeltaBot, message: Message, replies: Replies) -> None:
 
 
 @simplebot.command
+def s3_status(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Muestra el estado de tu descarga."""
+    addr = message.get_sender_contact().addr
+    in_queue = addr in petitions
+    download = None
+    for d in list(downloading):
+        if d.addr == addr:
+            download = d
+            break
+    if download:
+        step = max(d.step, 0)
+        percent = d.parts and step / d.parts
+        progress = ("🟩" * round(10 * percent)).ljust(10, "⬜")
+        text = f"⬇️ Tu petición está siendo descargada\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
+    elif in_queue:
+        text = "⏳ Tu petición está pendiente en cola, espera tu turno."
+    else:
+        text = "❌ No tienes ninguna petición pendiente en cola."
+    replies.add(text=text)
+
+
+@simplebot.command
 def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
     """Obtén un archivo de internet como enlace de descarga gratis de s3, debes estar registrado para usar este comando."""
     addr = message.get_sender_contact().addr
@@ -173,7 +206,8 @@ def _process_request(
     bot: DeltaBot, msg: Message, addr: str, acc: dict, url: str
 ) -> None:
     bot.logger.debug("Processing petition: %s - %s", addr, url)
-    downloading.add(addr)
+    d = Download(addr)
+    downloading.add(d)
     try:
         is_admin = bot.is_admin(addr)
         if is_ytlink(url):
@@ -181,6 +215,8 @@ def _process_request(
         else:
             filename, data, size = download_file(url, is_admin)
         bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
+        d.size = size
+        d.step += 1
         with TemporaryDirectory() as tempdir:
             with multivolumefile.open(
                 os.path.join(tempdir, filename + ".7z"),
@@ -196,6 +232,7 @@ def _process_request(
             parts_count = len(parts)
             urls = []
             client = ToDusClient()
+            d.step += 1
             for i, name in enumerate(parts, 1):
                 bot.logger.debug("Uploading %s/%s: %s", i, parts_count, url)
                 with open(os.path.join(tempdir, name), "rb") as file:
@@ -214,6 +251,7 @@ def _process_request(
                         raise ValueError(
                             f"Failed to upload part {i} ({len(part):,}B): {ex}"
                         )
+                d.step += 1
         txt = "\n".join(f"{down_url}\t{name}" for down_url, name in zip(urls, parts))
         replies = Replies(msg, logger=bot.logger)
         replies.add(
@@ -229,5 +267,5 @@ def _process_request(
         replies.add(text=f"❌ La descarga falló. {ex}", quote=msg)
         replies.send_reply_messages()
     finally:
-        downloading.discard(addr)
+        downloading.discard(d)
         del petitions[addr]
