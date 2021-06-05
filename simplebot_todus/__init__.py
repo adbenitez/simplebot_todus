@@ -133,14 +133,14 @@ def s3_status(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
     """Muestra el estado de tu descarga."""
     addr = message.get_sender_contact().addr
     in_queue = addr in petitions
-    download = None
-    for d in list(downloading):
-        if d.addr == addr:
-            download = d
+    d = None
+    for download in list(downloading):
+        if download.addr == addr:
+            d = download
             break
-    if download:
+    if d and d.parts:
         step = max(d.step, 0)
-        percent = d.parts and step / d.parts
+        percent =  step / d.parts
         progress = ("🟩" * round(10 * percent)).ljust(10, "⬜")
         text = f"⬇️ Tu petición está siendo descargada\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
     elif in_queue:
@@ -229,12 +229,12 @@ def _process_request(
                     a.writestr(data, filename)
             del data
             parts = sorted(os.listdir(tempdir))
-            parts_count = len(parts)
             urls = []
             client = ToDusClient()
+            d.parts = len(parts)
             d.step += 1
             for i, name in enumerate(parts, 1):
-                bot.logger.debug("Uploading %s/%s: %s", i, parts_count, url)
+                bot.logger.debug("Uploading %s/%s: %s", i, d.parts, url)
                 with open(os.path.join(tempdir, name), "rb") as file:
                     part = file.read()
                 try:
