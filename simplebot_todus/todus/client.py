@@ -19,7 +19,7 @@ class ToDusClient:
                 "Accept-Encoding": "gzip",
             }
         )
-        self.session.request = functools.partial(self.session.request, timeout=30)
+        self.session.request = functools.partial(self.session.request, timeout=60)
 
     @property
     def auth_ua(self) -> str:
@@ -108,7 +108,7 @@ class ToDusClient:
             "User-Agent": self.upload_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        timeout = max(len(data) / 1024 / 1024 * 10, 30)
+        timeout = max(len(data) / 1024 / 1024 * 20, 60)
         with self.session.put(
             url=up_url, data=data, headers=headers, timeout=timeout
         ) as resp:
@@ -125,7 +125,7 @@ class ToDusClient:
             "User-Agent": self.download_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        with self.session.get(url=url, headers=headers, timeout=60) as resp:
+        with self.session.get(url=url, headers=headers) as resp:
             resp.raise_for_status()
             size = int(resp.headers.get("Content-Length"))
             with open(path, "wb") as file:
