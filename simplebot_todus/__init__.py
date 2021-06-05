@@ -35,7 +35,7 @@ class Download:
         self.size = 0
 
     def __repr__(self) -> str:
-        return f"<{self.addr} step={self.step}, parts={self.parts}>"
+        return f"<{self.addr} {self.step}/{self.parts}>"
 
 
 @simplebot.hookimpl
