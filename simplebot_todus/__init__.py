@@ -2,7 +2,7 @@ import io
 import os
 import queue
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from tempfile import TemporaryDirectory
 from threading import Semaphore, Thread
 from urllib.parse import quote_plus
@@ -21,7 +21,7 @@ __version__ = "1.0.0"
 
 part_size = 1024 * 1024 * 15
 queue_size = 50
-pool = ThreadPoolExecutor(max_workers=10)
+pool = ProcessPoolExecutor(max_workers=10)
 petitions = dict()
 downloading = set()
 db: DBManager
@@ -30,7 +30,7 @@ db: DBManager
 class Download:
     def __init__(self, addr: str) -> None:
         self.addr = addr
-        self.step = -2
+        self.step = -2.0
         self.parts = 0
         self.size = 0
 
@@ -139,8 +139,8 @@ def s3_status(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
             d = download
             break
     if d and d.parts:
-        step = max(d.step, 0)
-        percent =  step / d.parts
+        step = max(int(d.step), 0)
+        percent = step / d.parts
         progress = ("🟩" * round(10 * percent)).ljust(10, "⬜")
         text = f"⬇️ Tu petición se está descargando!\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
     elif in_queue:
@@ -216,7 +216,7 @@ def _process_request(
             filename, data, size = download_file(url, is_admin)
         bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
         d.size = size
-        d.step += 1
+        d.step += 1  # step == -1
         with TemporaryDirectory() as tempdir:
             with multivolumefile.open(
                 os.path.join(tempdir, filename + ".7z"),
@@ -232,26 +232,29 @@ def _process_request(
             urls = []
             client = ToDusClient()
             d.parts = len(parts)
-            d.step += 1
+            d.step += 1  # step == 0
             for i, name in enumerate(parts, 1):
                 bot.logger.debug("Uploading %s/%s: %s", i, d.parts, url)
                 with open(os.path.join(tempdir, name), "rb") as file:
                     part = file.read()
                 try:
                     token = client.login(acc["phone"], acc["password"])
+                    d.step += 0.5
                     urls.append(client.upload_file(token, part, len(part)))
                 except Exception as ex:
                     bot.logger.exception(ex)
                     time.sleep(15)
                     try:
                         token = client.login(acc["phone"], acc["password"])
+                        if d.step.is_integer():
+                            d.step += 0.5
                         urls.append(client.upload_file(token, part, len(part)))
                     except Exception as ex:
                         bot.logger.exception(ex)
                         raise ValueError(
                             f"Failed to upload part {i} ({len(part):,}B): {ex}"
                         )
-                d.step += 1
+                d.step += 0.5
         txt = "\n".join(f"{down_url}\t{name}" for down_url, name in zip(urls, parts))
         replies = Replies(msg, logger=bot.logger)
         replies.add(

@@ -1,10 +1,9 @@
-import functools
 import string
 
 import requests
 
 from .s3 import get_real_url, reserve_url
-from .util import generate_token
+from .util import generate_token, timeout
 
 
 class ToDusClient:
@@ -13,13 +12,21 @@ class ToDusClient:
     ) -> None:
         self.version_name = version_name
         self.version_code = version_code
+
+        self.timeout = 60
         self.session = requests.Session()
         self.session.headers.update(
             {
                 "Accept-Encoding": "gzip",
             }
         )
-        self.session.request = functools.partial(self.session.request, timeout=60)
+        self._real_request = self.session.request
+        self.session.request = self._request
+
+    def _request(self, *args, **kwargs) -> requests.Response:
+        kwargs.setdefault("timeout", self.timeout)
+        with timeout(seconds=kwargs["timeout"], message="Connection timed out"):
+            return self._real_request(*args, **kwargs)
 
     @property
     def auth_ua(self) -> str:
@@ -108,7 +115,7 @@ class ToDusClient:
             "User-Agent": self.upload_ua,
             "Authorization": "Bearer {}".format(token),
         }
-        timeout = max(len(data) / 1024 / 1024 * 20, 60)
+        timeout = max(len(data) / 1024 / 1024 * 20, self.timeout)
         with self.session.put(
             url=up_url, data=data, headers=headers, timeout=timeout
         ) as resp:
