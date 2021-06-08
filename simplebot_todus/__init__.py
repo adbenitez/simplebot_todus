@@ -2,7 +2,7 @@ import io
 import os
 import queue
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
 from threading import Semaphore, Thread
 from urllib.parse import quote_plus
@@ -21,7 +21,7 @@ __version__ = "1.0.0"
 
 part_size = 1024 * 1024 * 15
 queue_size = 50
-pool = ProcessPoolExecutor(max_workers=10)
+pool = ThreadPoolExecutor(max_workers=10)
 petitions = dict()
 downloading = set()
 db: DBManager
