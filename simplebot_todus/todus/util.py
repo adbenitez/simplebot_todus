@@ -3,6 +3,8 @@ import queue
 import random
 import string
 
+from .errors import AbortError
+
 
 class ResultProcess(multiprocessing.Process):
     def __init__(self, target, **kwargs) -> None:
@@ -18,6 +20,10 @@ class ResultProcess(multiprocessing.Process):
         except Exception as ex:
             self._failed.set()
             self._result_queue.put(ex)
+
+    def abort(self) -> None:
+        self._failed.set()
+        self._result_queue.put(AbortError())
 
     def get_result(self, timeout: int = None):
         try:

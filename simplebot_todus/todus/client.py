@@ -22,16 +22,25 @@ class ToDusClient:
         )
         self._real_request = self.session.request
         self.session.request = self._request
+        self._process = None
 
     def _request(self, *args, **kwargs) -> requests.Response:
         kwargs.setdefault("timeout", self.timeout)
-        p = ResultProcess(target=self._real_request, args=args, kwargs=kwargs)
-        p.start()
+        self._process = ResultProcess(
+            target=self._real_request, args=args, kwargs=kwargs
+        )
+        self._process.start()
         try:
-            return p.get_result(kwargs["timeout"])
-        except TimeoutError as ex:
+            return self._process.get_result(kwargs["timeout"])
+        finally:
+            self.abort()
+
+    def abort(self) -> None:
+        p = self._process
+        if p:
+            self._process = None
             p.kill()
-            raise ex
+            p.abort()
 
     @property
     def auth_ua(self) -> str:

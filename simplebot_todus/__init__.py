@@ -4,7 +4,7 @@ import queue
 import time
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
-from threading import Semaphore, Thread
+from threading import Event, Semaphore, Thread
 from urllib.parse import quote_plus
 
 import multivolumefile
@@ -15,6 +15,7 @@ from simplebot.bot import DeltaBot, Replies
 
 from .db import DBManager
 from .todus.client import ToDusClient
+from .todus.errors import AbortError
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
 
 __version__ = "1.0.0"
@@ -33,6 +34,12 @@ class Download:
         self.step = -2.0
         self.parts = 0
         self.size = 0
+        self.canceled = Event()
+        self.client = ToDusClient()
+
+    def abort(self) -> None:
+        self.canceled.set()
+        self.client.abort()
 
     def __repr__(self) -> str:
         return f"<{self.addr} {self.step}/{self.parts}>"
@@ -118,6 +125,12 @@ def s3_login2(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
 def s3_logout(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Darte baja del bot y olvidar tu cuenta."""
     addr = message.get_sender_contact().addr
+    if addr in petitions:
+        replies.add(
+            text="❌ Tienes una petición pendiente en cola, espera a que tu descarga termine para darte baja.",
+            quote=message,
+        )
+        return
     acc = db.get_account(addr)
     if acc:
         db.delete_account(addr)
@@ -183,6 +196,23 @@ def s3_get(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> N
 
 
 @simplebot.command
+def s3_cancel(message: Message, replies: Replies) -> None:
+    """Cancela la descarga de tu petición."""
+    addr = message.get_sender_contact().addr
+    download = None
+    for d in list(downloading):
+        if d.addr == addr:
+            download = d
+    if download:
+        download.abort()
+    else:
+        replies.add(
+            text="❌ No tienes ninguna descarga en curso. Si tienes una petición en la cola, debes esperar a que tu descarga comience para cancelarla",
+            quote=message,
+        )
+
+
+@simplebot.command
 def s3_pass(message: Message, replies: Replies) -> None:
     """Obtén el password de tu sessión registrada."""
     acc = db.get_account(message.get_sender_contact().addr)
@@ -208,6 +238,7 @@ def _process_request(
     bot.logger.debug("Processing petition: %s - %s", addr, url)
     d = Download(addr)
     downloading.add(d)
+    cancel_err = ValueError("Descarga cancelada.")
     try:
         is_admin = bot.is_admin(addr)
         if is_ytlink(url):
@@ -215,6 +246,10 @@ def _process_request(
         else:
             filename, data, size = download_file(url, is_admin)
         bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
+
+        if d.canceled.is_set():
+            raise cancel_err
+
         d.size = size
         d.step += 1  # step == -1
         with TemporaryDirectory() as tempdir:
@@ -230,25 +265,30 @@ def _process_request(
             del data
             parts = sorted(os.listdir(tempdir))
             urls = []
-            client = ToDusClient()
             d.parts = len(parts)
             d.step += 1  # step == 0
             for i, name in enumerate(parts, 1):
+                if d.canceled.is_set():
+                    raise cancel_err
                 bot.logger.debug("Uploading %s/%s: %s", i, d.parts, url)
                 with open(os.path.join(tempdir, name), "rb") as file:
                     part = file.read()
                 try:
-                    token = client.login(acc["phone"], acc["password"])
+                    token = d.client.login(acc["phone"], acc["password"])
                     d.step += 0.5
-                    urls.append(client.upload_file(token, part, len(part)))
+                    urls.append(d.client.upload_file(token, part, len(part)))
+                except AbortError:
+                    raise cancel_err
                 except Exception as ex:
                     bot.logger.exception(ex)
                     time.sleep(15)
                     try:
-                        token = client.login(acc["phone"], acc["password"])
+                        token = d.client.login(acc["phone"], acc["password"])
                         if d.step.is_integer():
                             d.step += 0.5
-                        urls.append(client.upload_file(token, part, len(part)))
+                        urls.append(d.client.upload_file(token, part, len(part)))
+                    except AbortError:
+                        raise cancel_err
                     except Exception as ex:
                         bot.logger.exception(ex)
                         raise ValueError(
