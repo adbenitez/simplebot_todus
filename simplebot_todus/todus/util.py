@@ -1,29 +1,30 @@
 import multiprocessing
+import queue
 import random
 import string
 
 
 class ResultProcess(multiprocessing.Process):
     def __init__(self, target, **kwargs) -> None:
-        self._target = target
-        self._queue = multiprocessing.Queue()
-        self._failed = False
+        self._real_target = target
+        self._result_queue = multiprocessing.Queue()
+        self._failed = multiprocessing.Event()
         kwargs.setdefault("daemon", True)
-        super().__init__(target=self._run, **kwargs)
+        super().__init__(target=self._wrapper, **kwargs)
 
-    def _run(self, *args, **kwargs) -> None:
+    def _wrapper(self, *args, **kwargs) -> None:
         try:
-            self._queue.put(self._target(*args, **kwargs))
+            self._queue.put(self._real_target(*args, **kwargs))
         except Exception as ex:
-            self._failed = True
-            self._queue.put(ex)
+            self._failed.set()
+            self._result_queue.put(ex)
 
     def get_result(self, timeout: int = None):
         try:
-            result = self._queue.get(timeout=timeout)
+            result = self._result_queue.get(timeout=timeout)
         except queue.Empty:
             raise TimeoutError("Operation timed out.")
-        if self._failed:
+        if self._failed.is_set():
             raise result
         return result
 
