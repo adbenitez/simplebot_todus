@@ -3,7 +3,7 @@ import string
 import requests
 
 from .s3 import get_real_url, reserve_url
-from .util import generate_token
+from .util import ResultProcess, generate_token
 
 
 class ToDusClient:
@@ -25,7 +25,13 @@ class ToDusClient:
 
     def _request(self, *args, **kwargs) -> requests.Response:
         kwargs.setdefault("timeout", self.timeout)
-        return self._real_request(*args, **kwargs)
+        p = ResultProcess(target=self._real_request, args=args, kwargs=kwargs)
+        p.start()
+        try:
+            return p.get_result(kwargs["timeout"])
+        except TimeoutError as ex:
+            p.kill()
+            raise ex
 
     @property
     def auth_ua(self) -> str:
