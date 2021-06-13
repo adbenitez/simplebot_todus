@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 if __name__ == "__main__":
     MODULE_NAME = "simplebot_todus"
     DESC = "ToDus uploader"
-    URL = "https://github.com/simplebot-org/simplebot_todus"
+    URL = "https://github.com/adbenitez/simplebot_todus"
 
     with open(os.path.join(MODULE_NAME, "__init__.py")) as fh:
         version = re.search(r"__version__ = \"(.*?)\"", fh.read(), re.M).group(1)
