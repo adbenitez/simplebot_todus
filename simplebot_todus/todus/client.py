@@ -1,5 +1,5 @@
 import string
-from typing import Callable, Any
+from typing import Any, Callable
 
 import requests
 
@@ -58,6 +58,7 @@ class ToDusClient:
 
     def request_code(self, phone_number: str) -> None:
         """Request server to send verification SMS code."""
+
         def task() -> None:
             headers = {
                 "Host": "auth.todus.cu",
@@ -73,6 +74,7 @@ class ToDusClient:
             url = "https://auth.todus.cu/v2/auth/users.reserve"
             with self.session.post(url, data=data, headers=headers) as resp:
                 resp.raise_for_status()
+
         self._run_task(task, self.timeout)
 
     def validate_code(self, phone_number: str, code: str) -> str:
@@ -80,6 +82,7 @@ class ToDusClient:
 
         Returns the account password.
         """
+
         def task() -> str:
             headers = {
                 "Host": "auth.todus.cu",
@@ -102,10 +105,12 @@ class ToDusClient:
                     return resp.content[index : index + 96].decode()
                 else:
                     return resp.content[5:166].decode()
+
         return self._run_task(task, self.timeout)
 
     def login(self, phone_number: str, password: str) -> str:
         """Login with phone number and password to get an access token."""
+
         def task() -> str:
             headers = {
                 "Host": "auth.todus.cu",
@@ -127,13 +132,15 @@ class ToDusClient:
                 resp.raise_for_status()
                 token = "".join([c for c in resp.text if c in string.printable])
                 return token
+
         return self._run_task(task, self.timeout)
 
     def upload_file(self, token: str, data: bytes, size: int = None) -> str:
         """Upload data and return the download URL."""
+        if size is None:
+            size = len(data)
+
         def task1() -> tuple:
-            if size is None:
-                size = len(data)
             return reserve_url(token, size)
 
         up_url, down_url = self._run_task(task1, self.timeout)
@@ -158,6 +165,7 @@ class ToDusClient:
 
         Returns the file size.
         """
+
         def task1() -> str:
             return get_real_url(token, url)
 
