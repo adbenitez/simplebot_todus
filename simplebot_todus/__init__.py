@@ -308,7 +308,7 @@ def _process_request(
                     except Exception as ex:
                         bot.logger.exception(ex)
                         raise ValueError(
-                            f"Failed to upload part {i} ({len(part):,}B): {ex}"
+                            f"Fallo al subir parte {i} ({len(part):,}B): {ex}"
                         )
                 d.step += 0.5
         txt = "\n".join(f"{down_url}\t{name}" for down_url, name in zip(urls, parts))
