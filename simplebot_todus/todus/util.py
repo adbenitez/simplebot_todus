@@ -25,7 +25,7 @@ class ResultProcess(multiprocessing.Process):
         self._failed.set()
         self._result_queue.put(AbortError())
 
-    def get_result(self, timeout: int = None):
+    def get_result(self, timeout: float = None):
         try:
             result = self._result_queue.get(timeout=timeout)
         except queue.Empty:
