@@ -39,7 +39,7 @@ class ToDusClient:
 
     def abort(self) -> None:
         p = self._process
-        if p:
+        if p is not None:
             self._process = None
             p.kill()
             p.abort()

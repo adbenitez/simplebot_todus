@@ -5,6 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
 from threading import Event, Semaphore, Thread
+from typing import Optional
 from urllib.parse import quote_plus
 
 import multivolumefile
@@ -16,6 +17,7 @@ from simplebot.bot import DeltaBot, Replies
 from .db import DBManager
 from .todus.client import ToDusClient
 from .todus.errors import AbortError
+from .todus.util import ResultProcess
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
 
 __version__ = "1.0.0"
@@ -36,10 +38,16 @@ class Download:
         self.size = 0
         self.canceled = Event()
         self.client = ToDusClient()
+        self.download_process: Optional[ResultProcess] = None
 
     def abort(self) -> None:
         self.canceled.set()
         self.client.abort()
+        p = self.download_process
+        if p is not None:
+            self.download_process = None
+            p.kill()
+            p.abort()
 
     def __repr__(self) -> str:
         return f"<{self.addr} {self.step}/{self.parts}>"
@@ -158,7 +166,9 @@ def s3_status(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
         step = max(int(d.step), 0)
         percent = step / d.parts
         progress = ("🟩" * round(10 * percent)).ljust(10, "⬜")
-        text = f"⬇️ Tu petición se está descargando!\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
+        text = f"⬆️ Tu petición se está subiendo...\n\n{progress}\n**{step}/{d.parts} ({d.size//1024:,}KB)**"
+    elif d:
+        text = f"⬇️ Tu petición se está descargando..."
     elif in_queue:
         text = "⏳ Tu petición está pendiente en cola, espera tu turno."
     else:
@@ -244,10 +254,13 @@ def _process_request(
     cancel_err = ValueError("Descarga cancelada.")
     try:
         is_admin = bot.is_admin(addr)
-        if is_ytlink(url):
-            filename, data, size = download_ytvideo(url, is_admin)
-        else:
-            filename, data, size = download_file(url, is_admin)
+        process = ResultProcess(
+            target=download_ytvideo if is_ytlink(url) else download_file,
+            args=(url, is_admin),
+        )
+        process.start()
+        d.download_process = process
+        filename, data, size = process.get_result(60 * 60 * 24)
         bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
 
         if d.canceled.is_set():
