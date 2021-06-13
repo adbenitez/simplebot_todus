@@ -56,13 +56,16 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Process ToDus verification codes."""
     if message.chat.is_group():
         return
+    try:
+        code = int(message.text)
+    except ValueError:
+        return
     acc = db.get_account(message.get_sender_contact().addr)
     if acc:
         if acc["password"]:
             replies.add(text="❌ Ya verificaste tu número de teléfono")
             return
         try:
-            code = int(message.text)
             password = ToDusClient().validate_code(acc["phone"], str(code))
             db.set_password(acc["addr"], password)
             replies.add(
