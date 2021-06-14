@@ -22,6 +22,7 @@ from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phon
 
 __version__ = "1.0.0"
 DEF_MAX_SIZE = str(1024 * 1024 * 200)
+DEF_DOWNLOAD_TIMEOUT = str(60 * 60 * 2)
 part_size = 1024 * 1024 * 15
 queue_size = 50
 pool = ThreadPoolExecutor(max_workers=10)
@@ -58,6 +59,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     global db
     db = get_db(bot)
     _getdefault(bot, "max_size", DEF_MAX_SIZE)
+    _getdefault(bot, "download_timeout", DEF_DOWNLOAD_TIMEOUT)
 
 
 @simplebot.filter
@@ -293,7 +295,9 @@ def _process_request(
         )
         process.start()
         d.download_process = process
-        filename, data, size = process.get_result(60 * 60 * 24)
+        filename, data, size = process.get_result(
+            int(_getdefault(bot, "download_timeout", DEF_DOWNLOAD_TIMEOUT))
+        )
         bot.logger.debug(f"Downloaded {size//1024:,}KB: {url}")
 
         if d.canceled.is_set():
