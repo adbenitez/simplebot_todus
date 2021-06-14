@@ -286,9 +286,10 @@ def _process_request(
     cancel_err = ValueError("Descarga cancelada.")
     try:
         is_admin = bot.is_admin(addr)
+        max_size = int(_getdefault(bot, "max_size", DEF_MAX_SIZE))
         process = ResultProcess(
             target=download_ytvideo if is_ytlink(url) else download_file,
-            args=(url, _getdefault(bot, "max_size", DEF_MAX_SIZE), is_admin),
+            args=(url, max_size, is_admin),
         )
         process.start()
         d.download_process = process
