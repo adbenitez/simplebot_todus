@@ -13,11 +13,11 @@ import py7zr
 import simplebot
 from deltachat import Message
 from simplebot.bot import DeltaBot, Replies
-
-from .db import DBManager
 from todus.client import ToDusClient
 from todus.errors import AbortError
 from todus.util import ResultProcess
+
+from .db import DBManager
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
 
 __version__ = "1.0.0"
@@ -74,16 +74,21 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
         if acc["password"]:
             replies.add(text="❌ Ya verificaste tu número de teléfono")
             return
-        try:
-            password = ToDusClient().validate_code(acc["phone"], str(code))
-            db.set_password(acc["addr"], password)
-            replies.add(
-                text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
-            )
-        except Exception as ex:
-            bot.logger.exception(ex)
-            replies.add(text=f"❌ Falló la verificación: {ex}")
-        return
+
+        def task():
+            replies = Replies(message, logger=bot.logger)
+            try:
+                password = ToDusClient().validate_code(acc["phone"], str(code))
+                db.set_password(acc["addr"], password)
+                replies.add(
+                    text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
+                )
+            except Exception as ex:
+                bot.logger.exception(ex)
+                replies.add(text=f"❌ Falló la verificación: {ex}")
+            replies.send_reply_messages()
+
+        Thread(target=task).start()
 
 
 @simplebot.command
@@ -96,16 +101,22 @@ def s3_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) ->
             text="❌ Ya estás registrado, debes darte baja primero con /s3_logout"
         )
         return
-    try:
-        phone = parse_phone(payload)
-        db.add_account(addr, phone)
-        ToDusClient().request_code(phone)
-        replies.add(text="Debes recibir un código SMS, envíalo aquí")
-    except Exception as ex:
-        bot.logger.exception(ex)
-        replies.add(
-            text=f"❌ Ocurrió un error, verifica que pusiste el número correctamente. {ex}"
-        )
+
+    def task():
+        replies = Replies(message, logger=bot.logger)
+        try:
+            phone = parse_phone(payload)
+            db.add_account(addr, phone)
+            ToDusClient().request_code(phone)
+            replies.add(text="Debes recibir un código SMS, envíalo aquí")
+        except Exception as ex:
+            bot.logger.exception(ex)
+            replies.add(
+                text=f"❌ Ocurrió un error, verifica que pusiste el número correctamente. {ex}"
+            )
+        replies.send_reply_messages()
+
+    Thread(target=task).start()
 
 
 @simplebot.command
@@ -118,19 +129,25 @@ def s3_login2(bot: DeltaBot, payload: str, message: Message, replies: Replies) -
             text="❌ Ya estás registrado, debes darte baja primero con /s3_logout"
         )
         return
-    try:
-        phone, password = payload.rsplit(maxsplit=1)
-        phone = parse_phone(phone)
-        ToDusClient().login(phone, password)
-        db.add_account(addr, phone, password)
-        replies.add(
-            text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
-        )
-    except Exception as ex:
-        bot.logger.exception(ex)
-        replies.add(
-            text=f"❌ Ocurrió un error, verifica que pusiste el número y contraseña correctamente. {ex}"
-        )
+
+    def task():
+        replies = Replies(message, logger=bot.logger)
+        try:
+            phone, password = payload.rsplit(maxsplit=1)
+            phone = parse_phone(phone)
+            ToDusClient().login(phone, password)
+            db.add_account(addr, phone, password)
+            replies.add(
+                text=f"☑️ Tu cuenta ha sido verificada! ya puedes comenzar a pedir contenido.\n\nContraseña:\n{password}"
+            )
+        except Exception as ex:
+            bot.logger.exception(ex)
+            replies.add(
+                text=f"❌ Ocurrió un error, verifica que pusiste el número y contraseña correctamente. {ex}"
+            )
+        replies.send_reply_messages()
+
+    Thread(target=task).start()
 
 
 @simplebot.command
@@ -237,11 +254,17 @@ def s3_pass(message: Message, replies: Replies) -> None:
 
 
 @simplebot.command
-def s3_token(message: Message, replies: Replies) -> None:
+def s3_token(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Obtén un token temporal que sirve para autenticarse en el servidor de s3 con otras apps que lo soporten."""
     acc = db.get_account(message.get_sender_contact().addr)
     if acc and acc["password"]:
-        replies.add(text=ToDusClient().login(acc["phone"], acc["password"]))
+
+        def task():
+            replies = Replies(message, logger=bot.logger)
+            replies.add(ToDusClient().login(acc["phone"], acc["password"]))
+            replies.send_reply_messages()
+
+        Thread(target=task).start()
     else:
         replies.add(text="❌ No estás registrado", quote=message)
 
