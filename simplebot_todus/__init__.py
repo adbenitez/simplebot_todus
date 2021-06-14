@@ -27,7 +27,7 @@ queue_size = 50
 pool = ThreadPoolExecutor(max_workers=10)
 petitions = dict()
 downloading = set()
-db: DBManager
+db: DBManager = None
 
 
 class Download:
