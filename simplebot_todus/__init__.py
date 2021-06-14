@@ -348,7 +348,7 @@ def _process_request(
         replies = Replies(msg, logger=bot.logger)
         replies.add(
             text=f"{filename} **({size//1024:,}KB)**",
-            filename=filename + ".txt",
+            filename=filename.encode(encoding="ascii", errors="ignore").decode() + ".txt",
             bytefile=io.BytesIO(txt.encode()),
             quote=msg,
         )
