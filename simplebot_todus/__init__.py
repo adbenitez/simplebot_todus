@@ -21,7 +21,7 @@ from todus.util import ResultProcess
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
 
 __version__ = "1.0.0"
-
+DEF_MAX_SIZE = str(1024 * 1024 * 200)
 part_size = 1024 * 1024 * 15
 queue_size = 50
 pool = ThreadPoolExecutor(max_workers=10)
@@ -57,6 +57,7 @@ class Download:
 def deltabot_init(bot: DeltaBot) -> None:
     global db
     db = get_db(bot)
+    _getdefault(bot, "max_size", DEF_MAX_SIZE)
 
 
 @simplebot.filter
@@ -245,6 +246,14 @@ def s3_token(message: Message, replies: Replies) -> None:
         replies.add(text="❌ No estás registrado", quote=message)
 
 
+def _getdefault(bot: DeltaBot, key: str, value: str = None) -> str:
+    val = bot.get(key, scope=__name__)
+    if val is None and value is not None:
+        bot.set(key, value, scope=__name__)
+        val = value
+    return val
+
+
 def _process_request(
     bot: DeltaBot, msg: Message, addr: str, acc: dict, url: str
 ) -> None:
@@ -256,7 +265,7 @@ def _process_request(
         is_admin = bot.is_admin(addr)
         process = ResultProcess(
             target=download_ytvideo if is_ytlink(url) else download_file,
-            args=(url, is_admin),
+            args=(url, _getdefault(bot, "max_size", DEF_MAX_SIZE), is_admin),
         )
         process.start()
         d.download_process = process

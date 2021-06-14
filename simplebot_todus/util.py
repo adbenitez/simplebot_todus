@@ -18,7 +18,6 @@ session.headers.update(
     }
 )
 session.request = functools.partial(session.request, timeout=15)
-max_size = 1024 * 1024 * 200
 
 
 def is_ytlink(url: str) -> bool:
@@ -43,7 +42,7 @@ def get_db(bot: DeltaBot) -> DBManager:
     return DBManager(os.path.join(path, "sqlite.db"))
 
 
-def download_ytvideo(url: str, is_admin: bool) -> tuple:
+def download_ytvideo(url: str, max_size: int, is_admin: bool) -> tuple:
     with TemporaryDirectory() as tempdir:
         opts = {
             "format": "best" if is_admin else f"best[filesize<{max_size}]",
@@ -71,7 +70,7 @@ def download_ytvideo(url: str, is_admin: bool) -> tuple:
     return (filename, data, size)
 
 
-def download_file(url: str, is_admin: bool) -> tuple:
+def download_file(url: str, max_size: int, is_admin: bool) -> tuple:
     if "://" not in url:
         url = "http://" + url
     with session.get(url, stream=True) as r:
