@@ -15,9 +15,9 @@ from deltachat import Message
 from simplebot.bot import DeltaBot, Replies
 
 from .db import DBManager
-from .todus.client import ToDusClient
-from .todus.errors import AbortError
-from .todus.util import ResultProcess
+from todus.client import ToDusClient
+from todus.errors import AbortError
+from todus.util import ResultProcess
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
 
 __version__ = "1.0.0"

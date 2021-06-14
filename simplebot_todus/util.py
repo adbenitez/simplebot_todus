@@ -10,7 +10,6 @@ import youtube_dl
 from simplebot.bot import DeltaBot
 
 from .db import DBManager
-from .todus.client import ToDusClient
 
 session = requests.Session()
 session.headers.update(
