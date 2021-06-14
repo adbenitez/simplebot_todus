@@ -1,0 +1,2 @@
+class FileTooBig(Exception):
+    pass

@@ -10,6 +10,7 @@ import youtube_dl
 from simplebot.bot import DeltaBot
 
 from .db import DBManager
+from .errors import FileTooBig
 
 session = requests.Session()
 session.headers.update(
@@ -54,7 +55,7 @@ def download_ytvideo(url: str, max_size: int, is_admin: bool) -> tuple:
             yt.download([url])
         files = os.listdir(tempdir)
         if len(files) > 1:
-            raise ValueError("File too big")
+            raise FileTooBig()
         filename = files[0]
         data = b""
         size = 0
@@ -64,7 +65,7 @@ def download_ytvideo(url: str, max_size: int, is_admin: bool) -> tuple:
             while chunk:
                 size += len(chunk)
                 if not is_admin and size > max_size:
-                    raise ValueError("File too big")
+                    raise FileTooBig()
                 data += chunk
                 chunk = f.read(chunk_size)
     return (filename, data, size)
@@ -80,7 +81,7 @@ def download_file(url: str, max_size: int, is_admin: bool) -> tuple:
         for chunk in r.iter_content(chunk_size=1024 * 1024):
             size += len(chunk)
             if not is_admin and size > max_size:
-                raise ValueError("File too big")
+                raise FileTooBig()
             data += chunk
         return (get_filename(r) or "file", data, size)
 

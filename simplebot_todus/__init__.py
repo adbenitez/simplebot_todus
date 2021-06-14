@@ -19,6 +19,7 @@ from todus.util import ResultProcess
 
 from .db import DBManager
 from .util import download_file, download_ytvideo, get_db, is_ytlink, parse_phone
+from .errors import FileTooBig
 
 __version__ = "1.0.0"
 DEF_MAX_SIZE = str(1024 * 1024 * 200)
@@ -361,7 +362,8 @@ def _process_request(
     except Exception as ex:
         bot.logger.exception(ex)
         replies = Replies(msg, logger=bot.logger)
-        replies.add(text=f"❌ La descarga falló. {ex}", quote=msg)
+        error_msg = "Archivo muy grande" if isinstance(ex, FileTooBig) else str(ex)
+        replies.add(text=f"❌ La descarga falló. {error_msg}", quote=msg)
         replies.send_reply_messages()
     finally:
         downloading.discard(d)
