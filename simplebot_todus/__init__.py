@@ -24,8 +24,9 @@ from .errors import FileTooBig
 __version__ = "1.0.0"
 DEF_MAX_SIZE = str(1024 * 1024 * 200)
 DEF_DOWNLOAD_TIMEOUT = str(60 * 60 * 2)
-part_size = 1024 * 1024 * 15
+DEF_PART_SIZE = str(1024 * 1024 * 15)
 queue_size = 50
+delay = 60 * 2
 pool = ThreadPoolExecutor(max_workers=10)
 petitions = dict()
 downloading = set()
@@ -310,7 +311,7 @@ def _process_request(
             with multivolumefile.open(
                 os.path.join(tempdir, filename + ".7z"),
                 "wb",
-                volume=part_size,
+                volume=int(_getdefault(bot, "part_size", DEF_PART_SIZE)),
             ) as vol:
                 with py7zr.SevenZipFile(
                     vol, "w", filters=[{"id": py7zr.FILTER_COPY}]
@@ -322,6 +323,7 @@ def _process_request(
             d.parts = len(parts)
             d.step += 1  # step == 0
             for i, name in enumerate(parts, 1):
+                time.sleep(delay)
                 if d.canceled.is_set():
                     raise cancel_err
                 bot.logger.debug("Uploading %s/%s: %s", i, d.parts, url)
@@ -335,7 +337,7 @@ def _process_request(
                     raise cancel_err
                 except Exception as ex:
                     bot.logger.exception(ex)
-                    time.sleep(15)
+                    time.sleep(delay)
                     try:
                         token = d.client.login(acc["phone"], acc["password"])
                         if d.step.is_integer():
