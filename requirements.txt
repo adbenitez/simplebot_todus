@@ -3,4 +3,4 @@ requests==2.25.1
 py7zr==0.16.1
 multivolumefile==0.2.3
 youtube-dl==2021.6.6
-todus==0.1.0
+todus==1.1.0
